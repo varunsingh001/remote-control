@@ -16,6 +16,7 @@ final class WebSocketManager {
 
     var chatMessages: [ChatMessage] = []
     var streamingResponse = ""
+    var streamingThinking = ""
     var isStreaming = false
 
     private var webSocket: URLSessionWebSocketTask?
@@ -33,9 +34,10 @@ final class WebSocketManager {
         isConnected = false
 
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 10
+        config.timeoutIntervalForRequest = 300
         let session = URLSession(configuration: config)
         webSocket = session.webSocketTask(with: url)
+        webSocket?.maximumMessageSize = 100 * 1024 * 1024
         webSocket?.resume()
 
         connectTask = Task {
@@ -83,29 +85,45 @@ final class WebSocketManager {
         await send(ServerRequest(action: "ollama_list_models"))
     }
 
+    func unloadModel(name: String, source: String) async {
+        await send(ServerRequest(action: "unload_model", model: name, source: source))
+    }
+
     func sendChatMessage(model: String, content: String, think: Bool, temperature: Double) async {
         let userMessage = ChatMessage(role: "user", content: content)
         chatMessages.append(userMessage)
         isStreaming = true
         streamingResponse = ""
+        streamingThinking = ""
 
         let payloadMessages = chatMessages
             .filter { $0.role == "user" || $0.role == "assistant" }
             .map { ChatMessagePayload(role: $0.role, content: $0.content) }
-        await send(ServerRequest(
+
+        guard let data = try? JSONEncoder().encode(ServerRequest(
             action: "ollama_chat",
             model: model,
             messages: payloadMessages,
             think: think,
             temperature: temperature
-        ))
+        )),
+        let string = String(data: data, encoding: .utf8) else {
+            isStreaming = false
+            return
+        }
+        do {
+            try await webSocket?.send(.string(string))
+        } catch {
+            isStreaming = false
+        }
     }
 
     func cancelStreaming() {
-        if !streamingResponse.isEmpty {
-            chatMessages.append(ChatMessage(role: "assistant", content: streamingResponse))
+        if !streamingResponse.isEmpty || !streamingThinking.isEmpty {
+            chatMessages.append(ChatMessage(role: "assistant", content: streamingResponse, thinking: streamingThinking.isEmpty ? nil : streamingThinking))
         }
         streamingResponse = ""
+        streamingThinking = ""
         isStreaming = false
     }
 
@@ -143,7 +161,16 @@ final class WebSocketManager {
     private nonisolated func receiveLoop() async {
         while !Task.isCancelled {
             do {
-                guard let message = try await webSocket?.receive() else { break }
+                guard let message = try await webSocket?.receive() else {
+                    await MainActor.run {
+                        if isConnected {
+                            isConnected = false
+                            isStreaming = false
+                            lastResponse = "Connection lost"
+                        }
+                    }
+                    break
+                }
                 if case .string(let text) = message,
                    let data = text.data(using: .utf8),
                    let response = try? JSONDecoder().decode(ServerResponse.self, from: data) {
@@ -154,6 +181,7 @@ final class WebSocketManager {
             } catch {
                 await MainActor.run {
                     isConnected = false
+                    isStreaming = false
                     lastResponse = "Disconnected: \(error.localizedDescription)"
                 }
                 break
@@ -196,13 +224,18 @@ final class WebSocketManager {
             }
         case "ollama_chat":
             if let content = response.data, !content.isEmpty {
-                streamingResponse += content
+                if response.thinking == true {
+                    streamingThinking += content
+                } else {
+                    streamingResponse += content
+                }
             }
             if response.done == true {
-                if !streamingResponse.isEmpty {
-                    chatMessages.append(ChatMessage(role: "assistant", content: streamingResponse))
+                if !streamingResponse.isEmpty || !streamingThinking.isEmpty {
+                    chatMessages.append(ChatMessage(role: "assistant", content: streamingResponse, thinking: streamingThinking.isEmpty ? nil : streamingThinking))
                 }
                 streamingResponse = ""
+                streamingThinking = ""
                 isStreaming = false
             }
         case "ollama_chat_tool":
@@ -231,3 +264,4 @@ final class WebSocketManager {
         }
     }
 }
+

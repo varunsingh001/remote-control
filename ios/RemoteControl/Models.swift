@@ -7,6 +7,7 @@ struct ServerRequest: Encodable {
     var messages: [ChatMessagePayload]?
     var think: Bool?
     var temperature: Double?
+    var source: String?
 }
 
 struct ChatMessagePayload: Codable {
@@ -20,6 +21,7 @@ struct ServerResponse: Decodable {
     var error: String?
     var action: String?
     var done: Bool?
+    var thinking: Bool?
 }
 
 struct DashboardData: Decodable {
@@ -41,8 +43,10 @@ struct OllamaModel: Decodable, Identifiable {
     let family: String?
     let parameter_size: String?
     let quantization: String?
+    let source: String?
 
     var id: String { name }
+    var isMLX: Bool { source == "mlx" }
 
     var formattedSize: String {
         let gb = Double(size) / (1024 * 1024 * 1024)
@@ -58,4 +62,5 @@ struct ChatMessage: Identifiable {
     let id = UUID()
     let role: String
     var content: String
+    var thinking: String?
 }

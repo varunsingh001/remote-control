@@ -7,26 +7,26 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1A2B3C4D5E6F7A8B9C0D1E2F /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* DashboardView.swift */; };
-		2B3C4D5E6F7A8B9C0D1E2F3A /* ModelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7B8C9D0E1F2A3 /* ModelsView.swift */; };
-		3C4D5E6F7A8B9C0D1E2F3A4B /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D4E5F6A7B8C9D0E1F2A3B4 /* ChatView.swift */; };
+		172B6A653FADCC9F9B8DE9E4 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 130DA33ED6B256DE0D2DF83C /* ChatView.swift */; };
+		4E4A61F79FAE06FAA5BB72C4 /* ModelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E724E1C4CDCBA0475ADBF8E /* ModelsView.swift */; };
 		5CD44779EEDBAF83FC1144B0 /* RemoteControlApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A48066FF42E8B91C468CBC6A /* RemoteControlApp.swift */; };
 		81D1ABE7CE20E2DA5337ECCC /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F302FBF5C94A827312BC9DA /* Models.swift */; };
 		862E2F318930D1A7EBB3A343 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55342ED716645308C0D18060 /* ContentView.swift */; };
 		B327BC0EC64B2A61476EDDC8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 71D6C67D48BB784E9FB37CCB /* Assets.xcassets */; };
 		BF06369A7E65A55515EAA172 /* WebSocketManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B934E4C3513607AD43D64A9 /* WebSocketManager.swift */; };
+		FC230F75D61B45DF420B0BE0 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30C595B8289C2475E9454989 /* DashboardView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		130DA33ED6B256DE0D2DF83C /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		30C595B8289C2475E9454989 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		4F302FBF5C94A827312BC9DA /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		55342ED716645308C0D18060 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		5B934E4C3513607AD43D64A9 /* WebSocketManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketManager.swift; sourceTree = "<group>"; };
 		71D6C67D48BB784E9FB37CCB /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		A1B2C3D4E5F6A7B8C9D0E1F2 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		7E724E1C4CDCBA0475ADBF8E /* ModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsView.swift; sourceTree = "<group>"; };
 		A48066FF42E8B91C468CBC6A /* RemoteControlApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteControlApp.swift; sourceTree = "<group>"; };
-		B2C3D4E5F6A7B8C9D0E1F2A3 /* ModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsView.swift; sourceTree = "<group>"; };
-		C3D4E5F6A7B8C9D0E1F2A3B4 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
-		DF6F831755BBDAA7D4A65987 /* RemoteControl.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RemoteControl.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DF6F831755BBDAA7D4A65987 /* RemoteControl.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RemoteControl.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EAED77B5D42977F189EC4643 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -35,12 +35,12 @@
 			isa = PBXGroup;
 			children = (
 				71D6C67D48BB784E9FB37CCB /* Assets.xcassets */,
-				C3D4E5F6A7B8C9D0E1F2A3B4 /* ChatView.swift */,
+				130DA33ED6B256DE0D2DF83C /* ChatView.swift */,
 				55342ED716645308C0D18060 /* ContentView.swift */,
-				A1B2C3D4E5F6A7B8C9D0E1F2 /* DashboardView.swift */,
+				30C595B8289C2475E9454989 /* DashboardView.swift */,
 				EAED77B5D42977F189EC4643 /* Info.plist */,
 				4F302FBF5C94A827312BC9DA /* Models.swift */,
-				B2C3D4E5F6A7B8C9D0E1F2A3 /* ModelsView.swift */,
+				7E724E1C4CDCBA0475ADBF8E /* ModelsView.swift */,
 				A48066FF42E8B91C468CBC6A /* RemoteControlApp.swift */,
 				5B934E4C3513607AD43D64A9 /* WebSocketManager.swift */,
 			);
@@ -94,6 +94,7 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					1D783117E46740BCF2804575 = {
+						DevelopmentTeam = 7Y43Q4W435;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -133,11 +134,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3C4D5E6F7A8B9C0D1E2F3A4B /* ChatView.swift in Sources */,
+				172B6A653FADCC9F9B8DE9E4 /* ChatView.swift in Sources */,
 				862E2F318930D1A7EBB3A343 /* ContentView.swift in Sources */,
-				1A2B3C4D5E6F7A8B9C0D1E2F /* DashboardView.swift in Sources */,
+				FC230F75D61B45DF420B0BE0 /* DashboardView.swift in Sources */,
 				81D1ABE7CE20E2DA5337ECCC /* Models.swift in Sources */,
-				2B3C4D5E6F7A8B9C0D1E2F3A /* ModelsView.swift in Sources */,
+				4E4A61F79FAE06FAA5BB72C4 /* ModelsView.swift in Sources */,
 				5CD44779EEDBAF83FC1144B0 /* RemoteControlApp.swift in Sources */,
 				BF06369A7E65A55515EAA172 /* WebSocketManager.swift in Sources */,
 			);
@@ -210,6 +211,9 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 7Y43Q4W435;
 				INFOPLIST_FILE = RemoteControl/Info.plist;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -229,6 +233,9 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = 7Y43Q4W435;
 				INFOPLIST_FILE = RemoteControl/Info.plist;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
