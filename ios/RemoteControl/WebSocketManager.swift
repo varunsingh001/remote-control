@@ -22,6 +22,9 @@ final class WebSocketManager {
     private var webSocket: URLSessionWebSocketTask?
     private var receiveTask: Task<Void, Never>?
     private var connectTask: Task<Void, Never>?
+    private var pendingContent = ""
+    private var pendingThinking = ""
+    private var flushTask: Task<Void, Never>?
 
     func connect(to host: String, port: Int = 8765) {
         guard !host.isEmpty, let url = URL(string: "ws://\(host):\(port)") else {
@@ -119,6 +122,7 @@ final class WebSocketManager {
     }
 
     func cancelStreaming() {
+        flushPending()
         if !streamingResponse.isEmpty || !streamingThinking.isEmpty {
             chatMessages.append(ChatMessage(role: "assistant", content: streamingResponse, thinking: streamingThinking.isEmpty ? nil : streamingThinking))
         }
@@ -130,6 +134,9 @@ final class WebSocketManager {
     func clearChat() {
         chatMessages.removeAll()
         streamingResponse = ""
+        streamingThinking = ""
+        pendingContent = ""
+        pendingThinking = ""
     }
 
     func systemInfo() async {
@@ -138,6 +145,28 @@ final class WebSocketManager {
 
     func runCommand(_ name: String) async {
         await send(ServerRequest(action: "run_command", command: name))
+    }
+
+    private func flushPending() {
+        flushTask?.cancel()
+        flushTask = nil
+        if !pendingContent.isEmpty {
+            streamingResponse += pendingContent
+            pendingContent = ""
+        }
+        if !pendingThinking.isEmpty {
+            streamingThinking += pendingThinking
+            pendingThinking = ""
+        }
+    }
+
+    private func scheduleFlush() {
+        guard flushTask == nil else { return }
+        flushTask = Task {
+            try? await Task.sleep(for: .milliseconds(50))
+            guard !Task.isCancelled else { return }
+            flushPending()
+        }
     }
 
     private func send(_ request: ServerRequest) async {
@@ -225,12 +254,14 @@ final class WebSocketManager {
         case "ollama_chat":
             if let content = response.data, !content.isEmpty {
                 if response.thinking == true {
-                    streamingThinking += content
+                    pendingThinking += content
                 } else {
-                    streamingResponse += content
+                    pendingContent += content
                 }
+                scheduleFlush()
             }
             if response.done == true {
+                flushPending()
                 if !streamingResponse.isEmpty || !streamingThinking.isEmpty {
                     chatMessages.append(ChatMessage(role: "assistant", content: streamingResponse, thinking: streamingThinking.isEmpty ? nil : streamingThinking))
                 }

@@ -184,8 +184,22 @@ struct StreamingSection: View {
                     Spacer(minLength: 40)
                 }
             } else {
-                ChatBubble(message: ChatMessage(role: "assistant", content: manager.streamingResponse))
+                StreamingBubble(text: manager.streamingResponse)
             }
+        }
+    }
+}
+
+struct StreamingBubble: View {
+    let text: String
+
+    var body: some View {
+        HStack {
+            Text(text)
+                .padding(12)
+                .background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 16))
+                .textSelection(.enabled)
+            Spacer(minLength: 40)
         }
     }
 }
