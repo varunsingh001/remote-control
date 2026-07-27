@@ -12,6 +12,8 @@ build/
 
 # Server
 server/com.vs.remotecontrol.server.plist
+server/certs/
+server/logs/
 server/scripts/*.log
 server/scripts/*.err
 *.log
