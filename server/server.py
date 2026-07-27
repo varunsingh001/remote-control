@@ -1,9 +1,12 @@
 import asyncio
 import json
+import logging
 import os
 import platform
 import re
 import subprocess
+from datetime import datetime
+from logging.handlers import RotatingFileHandler
 
 import aiohttp
 import websockets
@@ -19,6 +22,25 @@ mlx_process = None
 mlx_loaded_model = None
 mlx_ready = False
 mlx_lock = asyncio.Lock()
+
+LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+tool_logger = logging.getLogger("tool_runs")
+tool_logger.setLevel(logging.INFO)
+tool_logger.addHandler(RotatingFileHandler(
+    os.path.join(LOG_DIR, "tool_runs.log"), maxBytes=2 * 1024 * 1024, backupCount=3,
+))
+
+
+def log_tool_run(tool_name, args, result, duration_ms, source="ollama"):
+    tool_logger.info(json.dumps({
+        "ts": datetime.now().isoformat(),
+        "tool": tool_name,
+        "args": args,
+        "result": result[:500],
+        "duration_ms": duration_ms,
+        "source": source,
+    }))
 
 
 
@@ -146,6 +168,30 @@ async def ensure_mlx_server(model_name):
         return False
 
 
+DOCKER = "/usr/local/bin/docker"
+SANDBOX_CONTAINER = "python-sandbox"
+sandbox_stop_handle = None
+
+
+def stop_sandbox_sync():
+    try:
+        subprocess.run([DOCKER, "stop", SANDBOX_CONTAINER],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
+        print("[sandbox] stopped after idle timeout", flush=True)
+    except Exception:
+        pass
+
+
+def schedule_sandbox_stop():
+    global sandbox_stop_handle
+    if sandbox_stop_handle:
+        sandbox_stop_handle.cancel()
+    loop = asyncio.get_running_loop()
+    sandbox_stop_handle = loop.call_later(
+        300, lambda: asyncio.ensure_future(asyncio.to_thread(stop_sandbox_sync))
+    )
+
+
 ALLOWED_COMMANDS = {
     "battery": ["pmset", "-g", "batt"],
     "disk_space": ["df", "-h"],
@@ -210,7 +256,7 @@ def execute_script(script_path, args):
         cmd = [PYTHON_PATH, script_path]
         if args:
             cmd.append(json.dumps(args))
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         output = r.stdout.strip()
         if r.returncode != 0 and r.stderr.strip():
             output += f"\nSTDERR: {r.stderr.strip()}"
@@ -383,7 +429,12 @@ async def handle_ollama_chat(websocket, model, messages, all_tools, tool_scripts
                         result = "Already done (duplicate call skipped)."
                     elif fn in tool_scripts:
                         print(f"[chat] executing: {fn}({fn_args})", flush=True)
+                        t0 = asyncio.get_running_loop().time()
                         result = await asyncio.to_thread(execute_script, tool_scripts[fn], fn_args)
+                        duration_ms = int((asyncio.get_running_loop().time() - t0) * 1000)
+                        log_tool_run(fn, fn_args, result, duration_ms, source="ollama")
+                        if fn == "run_python":
+                            schedule_sandbox_stop()
                     else:
                         result = f"Unknown tool: {fn}"
 
@@ -558,7 +609,12 @@ async def handle_mlx_chat(websocket, model, messages, all_tools, tool_scripts, t
                         result = "Already done (duplicate call skipped)."
                     elif fn in tool_scripts:
                         print(f"[mlx] executing: {fn}({fn_args})", flush=True)
+                        t0 = asyncio.get_running_loop().time()
                         result = await asyncio.to_thread(execute_script, tool_scripts[fn], fn_args)
+                        duration_ms = int((asyncio.get_running_loop().time() - t0) * 1000)
+                        log_tool_run(fn, fn_args, result, duration_ms, source="mlx")
+                        if fn == "run_python":
+                            schedule_sandbox_stop()
                     else:
                         result = f"Unknown tool: {fn}"
 

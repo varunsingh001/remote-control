@@ -18,6 +18,7 @@ final class WebSocketManager {
     var streamingResponse = ""
     var streamingThinking = ""
     var isStreaming = false
+    var isToolRunning = false
 
     private var webSocket: URLSessionWebSocketTask?
     private var receiveTask: Task<Void, Never>?
@@ -25,6 +26,7 @@ final class WebSocketManager {
     private var pendingContent = ""
     private var pendingThinking = ""
     private var flushTask: Task<Void, Never>?
+    private var streamingTimeoutTask: Task<Void, Never>?
 
     func connect(to host: String, port: Int = 8765) {
         guard !host.isEmpty, let url = URL(string: "ws://\(host):\(port)") else {
@@ -64,6 +66,7 @@ final class WebSocketManager {
     func disconnect() {
         connectTask?.cancel()
         receiveTask?.cancel()
+        streamingTimeoutTask?.cancel()
         webSocket?.cancel(with: .normalClosure, reason: nil)
         webSocket = nil
         isConnected = false
@@ -71,6 +74,7 @@ final class WebSocketManager {
         isLoadingDashboard = false
         isLoadingModels = false
         isStreaming = false
+        isToolRunning = false
         streamingResponse = ""
         dashboardData = nil
         ollamaModels = []
@@ -93,9 +97,14 @@ final class WebSocketManager {
     }
 
     func sendChatMessage(model: String, content: String, think: Bool, temperature: Double) async {
+        if isStreaming {
+            cancelStreaming()
+        }
+
         let userMessage = ChatMessage(role: "user", content: content)
         chatMessages.append(userMessage)
         isStreaming = true
+        isToolRunning = false
         streamingResponse = ""
         streamingThinking = ""
 
@@ -116,12 +125,14 @@ final class WebSocketManager {
         }
         do {
             try await webSocket?.send(.string(string))
+            resetStreamingTimeout()
         } catch {
             isStreaming = false
         }
     }
 
     func cancelStreaming() {
+        streamingTimeoutTask?.cancel()
         flushPending()
         if !streamingResponse.isEmpty || !streamingThinking.isEmpty {
             chatMessages.append(ChatMessage(role: "assistant", content: streamingResponse, thinking: streamingThinking.isEmpty ? nil : streamingThinking))
@@ -129,6 +140,7 @@ final class WebSocketManager {
         streamingResponse = ""
         streamingThinking = ""
         isStreaming = false
+        isToolRunning = false
     }
 
     func clearChat() {
@@ -137,6 +149,7 @@ final class WebSocketManager {
         streamingThinking = ""
         pendingContent = ""
         pendingThinking = ""
+        isToolRunning = false
     }
 
     func systemInfo() async {
@@ -145,6 +158,17 @@ final class WebSocketManager {
 
     func runCommand(_ name: String) async {
         await send(ServerRequest(action: "run_command", command: name))
+    }
+
+    private func resetStreamingTimeout() {
+        streamingTimeoutTask?.cancel()
+        streamingTimeoutTask = Task {
+            try? await Task.sleep(for: .seconds(90))
+            guard !Task.isCancelled else { return }
+            if isStreaming {
+                cancelStreaming()
+            }
+        }
     }
 
     private func flushPending() {
@@ -195,6 +219,7 @@ final class WebSocketManager {
                         if isConnected {
                             isConnected = false
                             isStreaming = false
+                            isToolRunning = false
                             lastResponse = "Connection lost"
                         }
                     }
@@ -211,6 +236,7 @@ final class WebSocketManager {
                 await MainActor.run {
                     isConnected = false
                     isStreaming = false
+                    isToolRunning = false
                     lastResponse = "Disconnected: \(error.localizedDescription)"
                 }
                 break
@@ -219,6 +245,8 @@ final class WebSocketManager {
     }
 
     private func handleResponse(_ response: ServerResponse) {
+        resetStreamingTimeout()
+
         guard response.success else {
             let error = response.error ?? "Unknown error"
             if isStreaming {
@@ -228,6 +256,7 @@ final class WebSocketManager {
                 chatMessages.append(ChatMessage(role: "assistant", content: errorContent))
                 streamingResponse = ""
                 isStreaming = false
+                isToolRunning = false
             }
             if isLoadingModels {
                 ollamaError = error
@@ -261,6 +290,7 @@ final class WebSocketManager {
                 scheduleFlush()
             }
             if response.done == true {
+                streamingTimeoutTask?.cancel()
                 flushPending()
                 if !streamingResponse.isEmpty || !streamingThinking.isEmpty {
                     chatMessages.append(ChatMessage(role: "assistant", content: streamingResponse, thinking: streamingThinking.isEmpty ? nil : streamingThinking))
@@ -268,8 +298,10 @@ final class WebSocketManager {
                 streamingResponse = ""
                 streamingThinking = ""
                 isStreaming = false
+                isToolRunning = false
             }
         case "ollama_chat_tool":
+            isToolRunning = true
             if let toolMsg = response.data {
                 if response.done == true {
                     if let idx = chatMessages.lastIndex(where: { $0.role == "tool" }) {
@@ -280,6 +312,7 @@ final class WebSocketManager {
                             chatMessages[idx].content += " → " + truncated
                         }
                     }
+                    isToolRunning = false
                 } else {
                     let lookupTools = ["list_running_apps", "get_top_processes", "get_clipboard"]
                     let isLookup = lookupTools.contains(where: { toolMsg.hasPrefix($0) })
@@ -295,4 +328,3 @@ final class WebSocketManager {
         }
     }
 }
-

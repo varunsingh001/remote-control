@@ -63,11 +63,10 @@ struct ChatView: View {
                 }
                 .defaultScrollAnchor(.bottom)
                 .scrollDismissesKeyboard(.interactively)
-                .onTapGesture { isInputFocused = false }
                 .onChange(of: manager.chatMessages.count) {
-                    withAnimation { proxy.scrollTo("bottom") }
+                    proxy.scrollTo("bottom")
                 }
-                .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { _ in
+                .onChange(of: manager.isStreaming) {
                     if manager.isStreaming {
                         proxy.scrollTo("bottom")
                     }
@@ -117,7 +116,7 @@ struct ChatView: View {
 
     private func sendMessage() {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !manager.isStreaming else { return }
+        guard !text.isEmpty else { return }
         input = ""
         Task { await manager.sendChatMessage(model: selectedModel, content: text, think: thinking, temperature: temperature) }
     }
@@ -167,7 +166,21 @@ struct StreamingSection: View {
 
     var body: some View {
         if manager.isStreaming {
-            if manager.streamingResponse.isEmpty && manager.streamingThinking.isEmpty {
+            if manager.isToolRunning {
+                HStack {
+                    HStack(spacing: 6) {
+                        ProgressView()
+                            .controlSize(.mini)
+                        Text("Running tool…")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 16))
+                    Spacer(minLength: 40)
+                }
+            } else if manager.streamingResponse.isEmpty && manager.streamingThinking.isEmpty {
                 TypingIndicator()
             } else if manager.streamingResponse.isEmpty && !manager.streamingThinking.isEmpty {
                 HStack {
@@ -206,26 +219,84 @@ struct StreamingBubble: View {
 
 struct ToolCallBubble: View {
     let content: String
+    @State private var isExpanded = false
 
     private var isLoading: Bool { content.hasPrefix("\u{231B}") }
 
+    private var toolName: String {
+        if let parenIdx = content.firstIndex(of: "(") {
+            return String(content[content.startIndex..<parenIdx])
+        }
+        if let arrowRange = content.range(of: " → ") {
+            return String(content[content.startIndex..<arrowRange.lowerBound])
+        }
+        return content
+    }
+
+    private var hasResult: Bool {
+        content.contains(" → ")
+    }
+
+    private var resultText: String? {
+        guard let range = content.range(of: " → ") else { return nil }
+        return String(content[range.upperBound...])
+    }
+
     var body: some View {
-        HStack(spacing: 6) {
-            if isLoading {
+        if isLoading {
+            HStack(spacing: 6) {
                 ProgressView()
                     .controlSize(.mini)
-            } else {
-                Image(systemName: "wrench.and.screwdriver.fill")
-                    .font(.caption2)
+                Text(content)
+                    .font(.caption)
             }
-            Text(content)
-                .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(.ultraThinMaterial, in: Capsule())
+            .frame(maxWidth: .infinity, alignment: .center)
+        } else {
+            VStack(spacing: 0) {
+                Button {
+                    if hasResult {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isExpanded.toggle()
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "wrench.and.screwdriver.fill")
+                            .font(.caption2)
+                        Text(toolName)
+                            .font(.caption)
+                            .fontWeight(.medium)
+                        if hasResult {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 8, weight: .bold))
+                                .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                        }
+                    }
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(.ultraThinMaterial, in: Capsule())
+                }
+                .buttonStyle(.plain)
+
+                if isExpanded, let result = resultText {
+                    Text(result)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 10))
+                        .padding(.horizontal, 20)
+                        .padding(.top, 6)
+                        .textSelection(.enabled)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
         }
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(.ultraThinMaterial, in: Capsule())
-        .frame(maxWidth: .infinity, alignment: .center)
     }
 }
 
@@ -339,25 +410,42 @@ struct MarkdownText: View {
                 continue
             }
 
-            if let match = line.wholeMatch(of: /^(#{1,3})\s+(.+)/) {
-                blocks.append(.heading(match.1.count, String(match.2)))
+            if line.starts(with: "### ") {
+                blocks.append(.heading(3, String(line.dropFirst(4))))
+                i += 1
+                continue
+            }
+            if line.starts(with: "## ") {
+                blocks.append(.heading(2, String(line.dropFirst(3))))
+                i += 1
+                continue
+            }
+            if line.starts(with: "# ") {
+                blocks.append(.heading(1, String(line.dropFirst(2))))
                 i += 1
                 continue
             }
 
-            if let match = line.wholeMatch(of: /^\s*[\-\*]\s+(.+)/) {
-                blocks.append(.listItem(String(match.1)))
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if (trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ")) && trimmed.count > 2 {
+                blocks.append(.listItem(String(trimmed.dropFirst(2))))
                 i += 1
                 continue
             }
 
-            if let match = line.wholeMatch(of: /^\s*(\d+)\.\s+(.+)/) {
-                blocks.append(.numberedItem(String(match.1), String(match.2)))
+            if let dotIdx = trimmed.firstIndex(of: "."),
+               dotIdx > trimmed.startIndex,
+               trimmed[trimmed.startIndex..<dotIdx].allSatisfy(\.isNumber),
+               trimmed.index(after: dotIdx) < trimmed.endIndex,
+               trimmed[trimmed.index(after: dotIdx)] == " " {
+                let num = String(trimmed[trimmed.startIndex..<dotIdx])
+                let text = String(trimmed[trimmed.index(dotIdx, offsetBy: 2)...])
+                blocks.append(.numberedItem(num, text))
                 i += 1
                 continue
             }
 
-            if line.trimmingCharacters(in: .whitespaces).isEmpty {
+            if trimmed.isEmpty {
                 i += 1
                 continue
             }
@@ -366,11 +454,18 @@ struct MarkdownText: View {
             i += 1
             while i < lines.count {
                 let next = lines[i]
-                if next.trimmingCharacters(in: .whitespaces).isEmpty
+                let nextTrimmed = next.trimmingCharacters(in: .whitespaces)
+                if nextTrimmed.isEmpty
                     || next.hasPrefix("```") || next.hasPrefix("#")
-                    || next.wholeMatch(of: /^\s*[\-\*]\s+.+/) != nil
-                    || next.wholeMatch(of: /^\s*\d+\.\s+.+/) != nil
+                    || nextTrimmed.hasPrefix("- ") || nextTrimmed.hasPrefix("* ")
                 {
+                    break
+                }
+                if let dotIdx = nextTrimmed.firstIndex(of: "."),
+                   dotIdx > nextTrimmed.startIndex,
+                   nextTrimmed[nextTrimmed.startIndex..<dotIdx].allSatisfy(\.isNumber),
+                   nextTrimmed.index(after: dotIdx) < nextTrimmed.endIndex,
+                   nextTrimmed[nextTrimmed.index(after: dotIdx)] == " " {
                     break
                 }
                 paraLines.append(next)
